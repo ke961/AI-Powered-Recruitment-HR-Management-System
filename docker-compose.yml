@@ -11,6 +11,11 @@ services:
       - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -20,6 +25,38 @@ services:
       - '6379:6379'
     volumes:
       - redisdata:/data
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: hireflow-ai-service
+    restart: always
+    ports:
+      - '8000:8000'
+    environment:
+      - PORT=8000
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hireflow-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ai-service:
+        condition: service_started
+    ports:
+      - '3000:3000'
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/hireflow_ai?schema=public
+      - JWT_SECRET=super-secret-hireflow-key-change-in-prod-2026
+      - PORT=3000
+      - AI_SERVICE_URL=http://ai-service:8000
 
 volumes:
   pgdata:
