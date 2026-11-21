@@ -1,0 +1,344 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  RECRUITER
+  HIRING_MANAGER
+  CANDIDATE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  REMOTE
+}
+
+enum ExperienceLevel {
+  ENTRY
+  MID
+  SENIOR
+  LEAD
+  EXECUTIVE
+}
+
+enum JobStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum ApplicationStage {
+  APPLIED
+  SCREENING
+  SHORTLISTED
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum HumanReviewStatus {
+  PENDING
+  APPROVED
+  OVERRIDDEN
+}
+
+enum InterviewType {
+  SCREENING
+  TECHNICAL
+  BEHAVIORAL
+  HR
+  FINAL
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum Recommendation {
+  STRONG_HIRE
+  HIRE
+  NEUTRAL
+  NO_HIRE
+  STRONG_NO_HIRE
+}
+
+enum OfferStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum EmploymentStatus {
+  PROBATION
+  ACTIVE
+  TERMINATED
+  RESIGNED
+}
+
+enum NotificationType {
+  APPLICATION_UPDATE
+  INTERVIEW_SCHEDULED
+  OFFER_STATUS
+  SYSTEM
+}
+
+model User {
+  id                   String            @id @default(uuid())
+  email                String            @unique
+  passwordHash         String
+  firstName            String
+  lastName             String
+  role                 Role              @default(CANDIDATE)
+  status               UserStatus        @default(ACTIVE)
+  emailVerified        Boolean           @default(false)
+  verificationToken    String?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  avatarUrl            String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  candidateProfile     CandidateProfile?
+  jobPostings          JobPosting[]      @relation("UserJobPostings")
+  assignedInterviews   Interview[]       @relation("InterviewerInterviews")
+  scorecards           Scorecard[]       @relation("InterviewerScorecards")
+  createdOffers        Offer[]           @relation("UserOffers")
+  employeeRecord       Employee?         @relation("UserEmployeeRecord")
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+}
+
+model Company {
+  id          String        @id @default(uuid())
+  name        String
+  domain      String?
+  description String?
+  website     String?
+  logoUrl     String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  departments Department[]
+  jobPostings JobPosting[]
+}
+
+model Department {
+  id          String       @id @default(uuid())
+  companyId   String
+  name        String
+  description String?
+  createdAt   DateTime     @default(now())
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobPostings JobPosting[]
+}
+
+model JobPosting {
+  id              String          @id @default(uuid())
+  title           String
+  slug            String          @unique
+  description     String
+  requirements    String?
+  department      String
+  location        String
+  employmentType  EmploymentType  @default(FULL_TIME)
+  experienceLevel ExperienceLevel @default(MID)
+  salaryMin       Float?
+  salaryMax       Float?
+  salaryCurrency  String          @default("USD")
+  skills          String[]
+  status          JobStatus       @default(DRAFT)
+  createdById     String
+  companyId       String?
+  departmentId    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  createdBy       User            @relation("UserJobPostings", fields: [createdById], references: [id])
+  company         Company?        @relation(fields: [companyId], references: [id])
+  departmentRef   Department?     @relation(fields: [departmentId], references: [id])
+  applications    Application[]
+}
+
+model CandidateProfile {
+  id              String        @id @default(uuid())
+  userId          String        @unique
+  phone           String?
+  location        String?
+  headline        String?
+  bio             String?
+  skills          String[]
+  experienceYears Int?
+  resumeUrl       String?
+  portfolioUrl    String?
+  linkedinUrl     String?
+  githubUrl       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications    Application[]
+}
+
+model Application {
+  id              String           @id @default(uuid())
+  jobId           String
+  candidateId     String
+  stage           ApplicationStage @default(APPLIED)
+  resumeUrl       String
+  coverLetter     String?
+  recruiterNotes  String?
+  rejectionReason String?
+  appliedAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  job             JobPosting       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate       CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  aiAnalysis      AIAnalysis?
+  interviews      Interview[]
+  offer           Offer?
+  auditLogs       AuditLog[]
+
+  @@unique([jobId, candidateId])
+}
+
+model AIAnalysis {
+  id                String            @id @default(uuid())
+  applicationId     String            @unique
+  overallMatchScore Int               // 0 to 100
+  skillsMatched     String[]
+  skillsMissing     String[]
+  experienceMatch   String?
+  strengths         String[]
+  redFlags          String[]
+  matchExplanation  String
+  humanReviewStatus HumanReviewStatus @default(PENDING)
+  humanReviewNotes  String?
+  analyzedAt        DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  application       Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model Interview {
+  id              String          @id @default(uuid())
+  applicationId   String
+  interviewerId   String
+  type            InterviewType   @default(TECHNICAL)
+  scheduledAt     DateTime
+  durationMinutes Int             @default(45)
+  meetingLink     String?
+  location        String?
+  status          InterviewStatus @default(SCHEDULED)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  application     Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewer     User            @relation("InterviewerInterviews", fields: [interviewerId], references: [id])
+  scorecards      Scorecard[]
+}
+
+model Scorecard {
+  id                    String         @id @default(uuid())
+  interviewId           String
+  interviewerId         String
+  technicalRating       Int            // 1 - 5
+  behavioralRating      Int            // 1 - 5
+  communicationRating   Int            // 1 - 5
+  problemSolvingRating  Int            // 1 - 5
+  overallRecommendation Recommendation
+  feedbackNotes         String
+  submittedAt           DateTime       @default(now())
+
+  interview             Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  interviewer           User           @relation("InterviewerScorecards", fields: [interviewerId], references: [id])
+}
+
+model Offer {
+  id                     String      @id @default(uuid())
+  applicationId          String      @unique
+  baseSalary             Float
+  bonus                  Float?
+  equity                 String?
+  joiningDate            DateTime
+  expiryDate             DateTime
+  status                 OfferStatus @default(DRAFT)
+  offerLetterUrl         String?
+  candidateResponseNotes String?
+  createdById            String
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  application            Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  createdBy              User        @relation("UserOffers", fields: [createdById], references: [id])
+}
+
+model Employee {
+  id               String           @id @default(uuid())
+  userId           String           @unique
+  employeeCode     String           @unique
+  department       String
+  designation      String
+  managerId        String?
+  dateOfJoining    DateTime
+  employmentStatus EmploymentStatus @default(PROBATION)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user             User             @relation("UserEmployeeRecord", fields: [userId], references: [id], onDelete: Cascade)
+  manager          Employee?        @relation("EmployeeHierarchy", fields: [managerId], references: [id])
+  subordinates     Employee[]       @relation("EmployeeHierarchy")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(SYSTEM)
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id            String       @id @default(uuid())
+  userId        String?
+  applicationId String?
+  action        String
+  entityType    String
+  entityId      String
+  details       String?
+  ipAddress     String?
+  createdAt     DateTime     @default(now())
+
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+}
