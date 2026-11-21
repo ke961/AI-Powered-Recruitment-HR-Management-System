@@ -1,0 +1,51 @@
+# Node dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+backend/dist/
+frontend/dist/
+frontend/.next/
+*.tsbuildinfo
+
+# Environment & secrets
+.env
+.env.*
+backend/.env
+!*.example
+
+# Databases & local storage
+*.db
+*.db-journal
+backend/prisma/dev.db
+uploads/
+backend/uploads/
+
+# Python cache
+__pycache__/
+ai-service/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Auto-generated agent skill folders
+.agents/
+.claude/
+.cursor/
+.devin/
+backend/.agents/
+backend/.claude/
+backend/.cursor/
+backend/.devin/
+backend/AGENTS.md
+backend/CLAUDE.md
