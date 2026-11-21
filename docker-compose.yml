@@ -58,6 +58,20 @@ services:
       - PORT=3000
       - AI_SERVICE_URL=http://ai-service:8000
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hireflow-frontend
+    restart: always
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - '3001:3000'
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000/api
+
 volumes:
   pgdata:
   redisdata:
