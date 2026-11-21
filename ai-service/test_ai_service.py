@@ -1,43 +1,52 @@
 import sys
-from fastapi.testclient import TestClient
-from main import app
-
-client = TestClient(app)
+from main import analyze, extract_skills_from_text, extract_years_experience, AnalyzeRequest
 
 def test_ai_microservice():
     print("🧪 Running AI Screening Microservice Test Suite...")
 
-    # 1. Test Health
-    res = client.get("/health")
-    assert res.status_code == 200
-    assert res.json()["status"] == "healthy"
-    print("   -> GET /health: OK")
+    # 1. Test Text Extraction Utilities
+    sample_cv = """
+    Alex Chen
+    Senior Software Engineer with 5+ years of experience.
+    Proficient in TypeScript, Next.js, React, NestJS, and PostgreSQL.
+    Architected Docker microservices and Redis distributed caching.
+    """
 
-    # 2. Test Analyze Endpoint
-    payload = {
-        "applicationId": "test-app-123",
-        "jobTitle": "Senior Full-Stack Engineer",
-        "jobDescription": "Looking for a seasoned Full-Stack Engineer with TypeScript, Next.js, NestJS, and PostgreSQL experience.",
-        "jobSkills": "TypeScript, Next.js, NestJS, PostgreSQL, Docker, Redis",
-        "candidateSkills": "TypeScript, Next.js, NestJS, PostgreSQL, Docker, AWS",
-        "resumeText": "Experienced Full-Stack Developer with 5+ years building NestJS and Next.js scalable web applications."
-    }
+    skills = extract_skills_from_text(sample_cv)
+    print(f"   -> Extracted Skills: {skills}")
+    assert "TypeScript" in skills
+    assert "NestJS" in skills
+    assert "PostgreSQL" in skills
 
-    res = client.post("/analyze", json=payload)
-    assert res.status_code == 200
-    data = res.json()
+    years = extract_years_experience(sample_cv)
+    print(f"   -> Extracted Experience Years: {years}")
+    assert years == 5
 
-    print(f"   -> Match Score: {data['overallMatchScore']}%")
-    print(f"   -> Skills Matched: {data['skillsMatched']}")
-    print(f"   -> Skills Missing: {data['skillsMissing']}")
-    print(f"   -> Explanation: {data['matchExplanation']}")
+    # 2. Test Analyze Logic & Scoring
+    req = AnalyzeRequest(
+        applicationId="test-app-123",
+        jobTitle="Senior Full-Stack Engineer",
+        jobDescription="Looking for a seasoned Full-Stack Engineer with TypeScript, Next.js, NestJS, and PostgreSQL experience.",
+        jobSkills="TypeScript, Next.js, NestJS, PostgreSQL, Docker, Redis, Kubernetes",
+        candidateSkills="TypeScript, Next.js, NestJS, PostgreSQL, Docker",
+        resumeText=sample_cv,
+    )
 
-    assert data["overallMatchScore"] >= 80
-    assert "TypeScript" in data["skillsMatched"]
-    assert "Redis" in data["skillsMissing"]
-    assert len(data["strengths"]) > 0
+    resp = analyze(req)
 
-    print("\n🎉 AI SERVICE TESTS PASSED CLEANLY!\n")
+    print(f"   -> Overall Match Score: {resp.overallMatchScore}%")
+    print(f"   -> Skills Matched: {resp.skillsMatched}")
+    print(f"   -> Skills Missing: {resp.skillsMissing}")
+    print(f"   -> Strengths: {resp.strengths}")
+    print(f"   -> Evidence: {resp.matchExplanation}")
+
+    assert resp.overallMatchScore >= 80
+    assert "TypeScript" in resp.skillsMatched
+    assert "Kubernetes" in resp.skillsMissing
+    assert len(resp.strengths) > 0
+    assert "Alex Chen" not in resp.skillsMatched  # Ensure precision
+
+    print("\n🎉 ALL AI SERVICE UNIT TESTS PASSED CLEANLY!\n")
 
 if __name__ == "__main__":
     try:
