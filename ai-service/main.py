@@ -4,6 +4,7 @@ import re
 from typing import List, Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 import pypdf
 import docx
@@ -88,6 +89,56 @@ def extract_text_from_bytes(file_bytes: bytes, filename: str) -> str:
                 extracted += p.text + "\n"
 
     return extracted.strip()
+
+@app.get("/", response_class=HTMLResponse)
+def root():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>HireFlow AI Screening Engine</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1.5rem; box-sizing: border-box; }
+            .card { background: #1e293b; border: 1px solid #334155; padding: 2.5rem; border-radius: 1rem; max-width: 600px; width: 100%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+            .badge { display: inline-block; background: #064e3b; color: #34d399; padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; margin-bottom: 1.25rem; }
+            h1 { font-size: 1.6rem; margin: 0 0 0.5rem 0; font-weight: 700; color: #ffffff; }
+            p { color: #94a3b8; line-height: 1.6; margin: 0 0 1.5rem 0; font-size: 0.95rem; }
+            .links { display: flex; flex-direction: column; gap: 0.75rem; }
+            a.btn { display: inline-block; text-align: center; background: #2563eb; color: #ffffff; text-decoration: none; padding: 0.85rem 1.25rem; border-radius: 0.5rem; font-weight: 600; transition: background 0.2s; font-size: 0.95rem; }
+            a.btn:hover { background: #1d4ed8; }
+            a.btn-secondary { background: #334155; color: #f8fafc; }
+            a.btn-secondary:hover { background: #475569; }
+            .endpoints { background: #0f172a; border: 1px solid #334155; border-radius: 0.5rem; padding: 1.2rem; margin-top: 1.5rem; font-size: 0.875rem; }
+            .endpoints strong { color: #e2e8f0; display: block; margin-bottom: 0.5rem; }
+            .endpoints code { color: #38bdf8; font-family: monospace; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <span class="badge">● Online & Ready</span>
+            <h1>HireFlow AI Screening Microservice</h1>
+            <p>FastAPI service for resume extraction (.PDF / .DOCX), explainable skill gap matching, and candidate ranking.</p>
+            <div class="links">
+                <a href="/docs" class="btn">🚀 Open Interactive Swagger Documentation (/docs)</a>
+                <a href="/health" class="btn btn-secondary">🔍 Check Health Status (/health)</a>
+            </div>
+            <div class="endpoints">
+                <strong>Active Microservice Endpoints:</strong>
+                • <code>GET /health</code> - Service health check<br/>
+                • <code>GET /docs</code> - Interactive Swagger UI<br/>
+                • <code>POST /extract-text</code> - PDF/DOCX resume text extraction<br/>
+                • <code>POST /analyze</code> - Match scoring & explainable analysis
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
 
 @app.get("/health")
 def health():
